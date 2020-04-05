@@ -1,0 +1,190 @@
+#!/bin/bash
+#
+# Eduardo Banderas Alba
+# path backups if execute as server: ARCHIVEROOT/SSH_HOST/vbox
+#                                    ARCHIVEROOT/SSH_HOST/vbox/YYYYMMDD/vbox01.tar.gz
+#                                    ARCHIVEROOT/SSH_HOST/vbox/YYYYMMDD/vbox02.tar.gz
+
+# path backups if execute as client: ARCHIVEROOT/hostname/vbox
+#                                    ARCHIVEROOT/hostname/vbox/YYYYMMDD/vbox01.tar.gz
+#                                    ARCHIVEROOT/hostname/vbox/YYYYMMDD/vbox02.tar.gz
+
+. ${_CONFIGDIR}/manager-functions
+
+
+main() {
+  ret=256
+
+  ${BACKUP_VBOX} && {
+    echo ""
+    checking_global_vars
+    now=$(/bin/date +%Y%m%d)
+
+    week_now=$(/bin/date +%u)
+    [ ${WEEK_DAY} -ne ${week_now} ] && exit $ret
+
+    ${SERVER} && HOSTNAME="${SSH_HOST}" || HOSTNAME="$(hostname -f)"
+
+    backup_dir="${ARCHIVEROOT}/${HOSTNAME}/vbox"
+    storage="${backup_dir}/${now}"
+    sshauth="--host=$SSH_HOST --user=$SSH_USER --port=$SSH_PORT --keyfile=$SSH_KEY"
+
+    printf "Starting VBox backup, at `/bin/date`\n"
+
+    ${SERVER} && main_backup_server || main_backup_client
+    ret=$?
+
+    ${SERVER} && {
+      du -sh ${backup_dir}
+    } || {
+      _ssh_exec ${sshauth} --cmd="du -sh ${backup_dir}"
+    }
+
+    printf "Finish VBox backup, at `/bin/date`\n"
+  }  #${BACKUP_VBOX}
+
+  exit $ret
+}  #main
+
+
+main_backup_server() {
+  mkdir -p ${storage}
+  error=false
+  VBOX_VM=(${VBOX_VM})
+
+  for vm in ${VBOX_VM[@]}; do
+    printf "$vm\n"
+    _ssh_exec ${sshauth} --cmd="su -l vbox -c \
+                            \"/usr/bin/VBoxManage showvminfo ${vm}\"" | \
+                              grep -q running 2> /dev/null
+    retval=$?
+
+    if [ ${retval} -eq 1 ]; then
+      backup_vm="${VBOX_PATH// /\\ }/${vm}"
+      filepath="${storage}/${vm}.tar.gz"
+
+      _ssh_exec $sshauth \
+               --cmd="tar -czf - ${backup_vm} | cat" > ${filepath}
+      retval=$?
+
+      if [ ${retval} -eq 0 ]; then
+        printf "VM backup successful - ${vm}\n"
+      else
+        printf "Error when trying compress a vm - ${vm}\n"
+        error=true
+      fi
+
+      _ssh_exec ${sshauth} --cmd="su -l vbox -c \
+                          \"/usr/bin/VBoxManage startvm ${vm} --type headless\""
+      retval=$?
+
+      if [ ${retval} -eq 0 ]; then
+        printf "VM started sucessful - ${vm}\n"
+      else
+        printf "Error when trying start a vm - ${vm}\n"
+        error=true
+      fi
+    else
+      printf "Error the vm ${vm} is running or not exists\n"
+      error=true
+    fi
+  done  #for vm in ${VBOX_VM[@]}
+
+  if [ ${retval} -eq 0 ] && ! ${error}; then
+    old_files=$(find ${backup_dir} -maxdepth 1 -type d \
+                                   -mtime +${DAYS} -exec rm -Rvf {} \;)
+    printf "Remove old backups\n${old_files}\n"
+  else
+    printf "Skip remove old backups\n"
+  fi
+
+  return $retval
+}  #main_backup_server
+
+
+main_backup_client() {
+  _ssh_exec ${sshauth} --cmd="mkdir -p ${storage}"
+
+  for vm in ${VBOX_VM[@]}; do
+    su -l vbox -c "/usr/bin/VBoxManage showvminfo ${vm}" | \
+                                               grep -q running 2> /dev/null
+    retval=$?
+
+    if [ ${retval} -eq 0 ]; then
+      backup_vm="${VBOX_PATH}/${vm}"
+      filepath="${storage}/${vm}.tar.gz"
+      tar -czf - ${backup_vm} | _ssh_exec ${sshauth} \
+                                                    --cmd="cat ${filepath}"
+      retval=$?
+
+      if [ ${retval} -eq 0 ]; then
+        printf "VM backup successful - ${vm}\n"
+      else
+        printf "Error when trying compress a vm - ${vm}\n"
+      fi
+
+      /bin/su -l vbox -c "/usr/bin/VBoxManage startvm ${vm} --type headless"
+      retval=$?
+
+      if [ ${retval} -eq 0 ]; then
+        printf "VM started sucessful - ${vm}\n"
+      else
+        printf "Error when trying start a vm - ${vm}\n"
+      fi
+    else
+      printf "Error, the vm ${vm} is running or not exists\n"
+    fi
+  done  #for vm in ${VBOX_VM[@]}
+}  #main_backup_client
+
+
+checking_global_vars() {
+  if [ -z "${SSH_HOST}" ] || [ "${SSH_HOST}" == "" ]; then
+    printf "SSH_HOST not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_USER}" ] || [ "${SSH_USER}" == "" ]; then
+    printf "SSH_USER not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_PORT}" ] || [ "${SSH_PORT}" == "" ] || \
+     [[ ! "${SSH_PORT}" =~ [0-9]+ ]]; then
+    printf "SSH_PORT not defined or value is not numeric\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_KEY}" ] || [ "${SSH_KEY}" == "" ] || \
+     [ ! -f "${SSH_KEY}" ]; then
+    printf "SSH_KEY not defined or file not exists\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_USER}" ] || [ "${SSH_USER}" == "" ]; then
+    printf "SSH_USER not defined"
+    exit 1
+  fi
+
+  if [ -z "${VBOX_VM}" ] || [ "${VBOX_VM}" == "" ]; then
+    printf "VBOX_VM not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${VBOX_PATH}" ] || [ "${VBOX_PATH}" == "" ]; then
+    printf "VBOX_PATH not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${TEMPDIR}" ] || [ "${TEMPDIR}" == "" ] || \
+     [ ! -d "${TEMPDIR}" ]; then
+    TEMPDIR=/var/tmp
+  fi
+
+  if [ -z "${DAYS}" ] || [ "${DAYS}" == "" ]; then
+    DAYS=25
+  fi
+}  #checking_global_vars
+
+
+main

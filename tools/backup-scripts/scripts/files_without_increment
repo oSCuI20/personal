@@ -1,0 +1,160 @@
+#!/bin/bash
+#
+# Eduardo Banderas Alba
+# path backups if execute as server: ARCHIVEROOT/SSH_HOST/files
+#                                    ARCHIVEROOT/SSH_HOST/files/main
+#                                    ARCHIVEROOT/SSH_HOST/files/YYYYMMDD
+#
+# path backups if execute as client: ARCHIVEROOT/hostname/files
+#                                    ARCHIVEROOT/hostname/files/main
+#                                    ARCHIVEROOT/hostname/files/YYYYMMDD
+
+. ${_CONFIGDIR}/manager-functions
+
+
+main() {
+  ret=256
+
+  ${BACKUP_FILES_WITHOUT_INCREMENT} && {
+    echo ""
+    checking_global_vars
+    now=$(/bin/date +%Y%m%d)
+
+    week_now=$(/bin/date +%u)
+    [ ${FILES_WEEK_DAY} -ne ${week_now} ] && [ ${FILES_WEEK_DAY} -gt -1 ] && {
+      exit $ret
+    }
+
+    ${SERVER} && HOSTNAME="${SSH_HOST}" || HOSTNAME="$(hostname -f)"
+
+    backup_dir="${ARCHIVEROOT}/${HOSTNAME}/files"
+    printf "Stating backup files ${HOSTNAME}, `/bin/date`\n"
+
+    export RSYNC_RSH="ssh -i ${SSH_KEY} -p ${SSH_PORT}"
+
+    dir=${BACKUP_DIR}
+    main="${backup_dir}/${now}"
+    rsync_options=("-av")
+
+    printf "Start backup $dir\n"
+
+    ${SERVER} && main_backup_server || main_backup_client
+    ret=$?
+
+    printf "Finish backup files ${HOSTNAME}, `/bin/date`\n"
+  }  #${BACKUP_FILES_WITHOUT_INCREMENT}
+
+  exit $ret
+}  #main
+
+scp_() {
+  mkdir -p ${main}
+  scp_args="-P ${SSH_PORT} -i ${SSH_KEY} ${SSH_USER}@${SSH_HOST}:${dir} ${main}"
+
+  /usr/bin/scp ${scp_args}
+  retval=$?
+
+  if [ ${retval} -eq 0 ]; then
+    out=$(find ${backup_dir} -maxdepth 1 -type d -name "*" -mtime +${DAYS} \
+                             -exec rm -vRf {} \;)
+
+    [ "${out}" != "" ] && printf "Remove backups higher than ${DAYS}\n${out}\n"
+  else
+    printf "Error: scp command failed\n"
+  fi
+
+  retur $retval
+}
+
+main_backup_server() {
+  mkdir -p ${main}
+  connection=("${SSH_USER}@${SSH_HOST}:${dir}/" "${main}")
+
+  /usr/bin/rsync "${rsync_options[@]}" "${connection[@]}"
+  retval=$?
+
+  if [ ${retval} -eq 0 ]; then
+    out=$(find ${backup_dir} -maxdepth 1 -name "*" -mtime +${DAYS} \
+                             -exec rm -vRf {} \;)
+
+    [ "${out}" != "" ] && printf "Remove backups higher than ${DAYS}\n${out}\n"
+
+  else
+    printf "Error: Cannot execute rsync\n"
+  fi
+
+  return $retval
+}  #main_backup_server
+
+
+main_backup_client() {
+  sshauth="--host=$SSH_HOST --user=$SSH_USER --port=$SSH_PORT --keyfile=$SSH_KEY"
+
+  _ssh_exec ${sshauth} --cmd="mkdir -p ${main}"
+  connection=("${dir}/" "${SSH_USER}@${SSH_HOST}:${main}")
+
+  /usr/bin/rsync "${rsync_options[@]}" "${connection[@]}"
+  retval=$?
+
+  if [ ${retval} -eq 0 ]; then
+    out=$(_ssh_exec ${sshauth} --cmd="find ${backup_dir} \
+          -maxdepth 1 -name 2*.tar.gz -mtime +${DAYS} -exec rm -vRf {} \;")
+
+    [ "${out}" != "" ] && printf "Remove backups higher than ${DAYS}\n${out}\n"
+
+  else
+    printf "Error: Cannot execute rsync\n"
+  fi
+
+  return $retval
+}  #main_backup_client
+
+
+checking_global_vars() {
+  if [ -z "${SSH_HOST}" ] || [ "${SSH_HOST}" == "" ]; then
+    printf "SSH_HOST not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_USER}" ] || [ "${SSH_USER}" == "" ]; then
+    printf "SSH_USER not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_PORT}" ] || [ "${SSH_PORT}" == "" ] || \
+     [[ ! "${SSH_PORT}" =~ [0-9]+ ]]; then
+    printf "SSH_PORT not defined or value is not numeric\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_KEY}" ] || [ "${SSH_KEY}" == "" ] || \
+     [ ! -f "${SSH_KEY}" ]; then
+    printf "SSH_KEY not defined or file not exists\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_USER}" ] || [ "${SSH_USER}" == "" ]; then
+    printf "SSH_USER not defined"
+    exit 1
+  fi
+
+  if [ -z "${BACKUP_DIR}" ] || [ "${BACKUP_DIR}" == "" ]; then
+    printf "BACKUP_DIR not defined"
+    exit 1
+  fi
+
+  if [ -z "${TEMPDIR}" ] || [ "${TEMPDIR}" == "" ] || \
+     [ ! -d "${TEMPDIR}" ]; then
+    TEMPDIR=/var/tmp
+  fi
+
+  if [ -z "${DAYS}" ] || [ "${DAYS}" == "" ]; then
+    DAYS=25
+  fi
+
+  if [ -z "${FILES_WEEK_DAY}" ] || [ "${FILES_WEEK_DAY}" == "" ]; then
+    FILES_WEEK_DAY=-1
+  fi
+}  #checking_global_vars
+
+main

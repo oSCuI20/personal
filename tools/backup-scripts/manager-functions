@@ -1,0 +1,206 @@
+# Utils for handler.sh
+
+## Logging functions
+_log_msg() {
+
+  ! ${_QUIET} && printf "$@"
+
+  ${EMAIL} && printf "$@" >> "${_LOGFILE}"
+}  #_log_msg
+
+
+log_success_msg() { _log_msg "Success: $@\n"; }
+log_failure_msg() { _log_msg "Failure: $@\n"; }
+log_warning_msg() { _log_msg "Warning: $@\n"; }
+log_begin_msg() { _log_msg "Begin: $@ ... "; }
+log_end_msg() { _log_msg "done\n"; }
+
+log_script_msg() {
+  IFS=$'\n'
+  for line in $1; do
+    ! ${_QUIET} && printf " * ${line}\n"
+    ${EMAIL} && printf " * ${line}\n" >> "${_LOGFILE}"
+  done
+  ! ${_QUIET} &&  printf "\n"
+  ${EMAIL} &&  printf "\n" >> "${_LOGFILE}"
+}  #log_script_msg
+
+
+run_script() {
+  output=""
+  if [ $# -eq 0 ]; then
+    log_failure_msg "Function require arguments, \$1 should be a script name \
+\$2 are the params of script"
+  else
+    run="${1}"
+    retval=0
+
+    if [ -x "${run}" ]; then
+      log_begin_msg "Execute ${run} ${2}"
+      output=$( (${run} ${2}) 2>&1 )
+      retval=$?
+      log_end_msg
+    else
+      log_warning_msg "Cannot execute ${run} check if file exists or permission"
+      retval=254
+    fi
+  fi  # if [ ${#@} -eq 0 ]; then
+
+  log_script_msg "${output}"
+  return $retval
+}  #run_script
+
+
+read_config() {
+  if [ ! -f "${1}" ]; then
+    log_warning_msg "Not found configuration file, ${1}"
+    return 1
+  fi
+
+  IFS=$'\n'
+  for line in `cat ${1}`; do
+    _is_not_comment "${line}" && {
+      var=${line//#*/}    #Remove comment in the line
+      key=${var%=*}       #Extract var key
+      value=${var#*=}     #Extract var value
+
+      if [ "${key}" == "EMAIL" ]; then
+        if [ "${value}" != "true" ] && [ "${value}" != "false" ]; then
+          log_failure_msg "EMAIL key should be true or false"
+          return 1
+        fi
+      fi
+      if [ "${key}" == "SERVER" ]; then
+        if [ "${value}" != "true" ] && [ "${value}" != "false" ]; then
+          log_failure_msg "SERVER key should be true or false"
+          return 1
+        fi
+      fi
+      if [ "${key}" == "BACKUP_MYSQL" ]; then
+        if [ "${value}" != "true" ] && [ "${value}" != "false" ]; then
+          log_failure_msg "BACKUP_MYSQL key should be true or false"
+          return 1
+        fi
+      fi
+      if [ "${key}" == "BACKUP_FILES" ]; then
+        if [ "${value}" != "true" ] && [ "${value}" != "false" ]; then
+          log_failure_msg "BACKUP_FILES key should be true or false"
+          return 1
+        fi
+      fi
+      if [ "${key}" == "BACKUP_VBOX" ]; then
+        if [ "${value}" != "true" ] && [ "${value}" != "false" ]; then
+          log_failure_msg "BACKUP_VBOX key should be true or false"
+          return 1
+        fi
+      fi
+      export ${key}
+    }  #_is_not_comment "${line}"
+  done  # for line in `cat ${1}`
+
+  . "${1}"
+  log_success_msg "Load configuration file $1"
+  return 0
+}  #read_config
+
+
+unset_config() {
+  if [ -f "${1}" ]; then
+    IFS=$'\n'
+    for line in `cat ${1}`; do
+      if _is_not_comment "$line"; then
+        unset ${line%=*}
+      fi
+    done
+  fi
+}  #unset_config
+
+
+_is_not_comment() {
+  if [ "${1: 0:1}" == "#" ]; then return 1; fi
+
+  return 0
+}  #_is_not_comment
+
+
+_locked() {
+  [ ! -d "${_PIDFILE%/*}" ] && mkdir -p "${_PIDFILE%/*}"
+  [ ! -f "${_PIDFILE}" ] && touch "${_PIDFILE}"
+  local pid=$(cat "${_PIDFILE}")
+  local process=$(ps ax -o pid,comm)
+  local retval=0
+
+  if printf "${process}" | grep -q "${pid}" && \
+     [ -n "${pid}" ]; then
+    log_failure_msg "Found a proccess ${pid}"
+    exit 1
+  fi
+
+  echo $$ > "${_PIDFILE}"
+}  #_locked
+
+
+_send_email() {
+  #_send_email "email_addr" "subject" "Message" "email_cc"
+  local email_to="$1"
+  local subject="$2"
+  local message="$3"
+  local email_cc="$4"
+  local email_from="backup@`hostname -f`"
+  {
+    printf "From: ${email_from}\n"
+    printf "To: ${email_to}\n"
+    [ -n "${email_cc}" ] && printf "CC: ${email_cc}\n"
+    printf "Subject: ${subject}\n"
+    printf "X-Mailer: Backup\n"
+    printf "MIME-Version: 1.0\n"
+    printf "Content-Transfer-Encoding: 8bit\n"
+    printf "Content-Type: text/plain; charset=UTF-8\n"
+    echo ""
+    cat "${message}"
+  } | /usr/sbin/sendmail -oi -t
+}  #_send_email
+
+
+_ssh_exec() {
+  ##  _ssh_exec(). Execute remote command.
+  ##  Params => --host=, --user=, --keyfile=, --cmd=
+  local retval=0
+  while [ $# -ge 1 ]; do
+    local key=$1
+    case $key in
+      --host=*)
+        local host="${key#*=}"
+        ;;
+      --user=*)
+        local user="${key#*=}"
+        ;;
+      --keyfile=*)
+        local keyfile="${key#*=}"
+        ;;
+      --port=*)
+        local port=${key#*=}
+        ;;
+      --cmd=*)
+        local cmd="${key#*=}"
+        ;;
+    esac
+    shift
+  done
+
+  [ "${port}" == "" ] && local port=22
+  if [ "${user}" == "" ]; then
+    local user=$(id -un)
+    printf "Use default user => ${user}\n"
+  fi
+  if [ "${host}" == "" ]; then
+    printf "Error host not defined. Coming out of program\n"
+    exit 1
+  fi
+  if [ "${keyfile}" == "" ] || [ ! -f "${keyfile}" ]; then
+    printf "Error keyfile not defined. Coming out of program\n"
+    exit 1
+  fi
+
+  /usr/bin/ssh -i "${keyfile}" -p ${port} ${user}@${host} "${cmd}"
+}  #_ssh_exec

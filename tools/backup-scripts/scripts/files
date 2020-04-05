@@ -1,0 +1,192 @@
+#!/bin/bash
+#
+# Eduardo Banderas Alba
+# path backups if execute as server: ARCHIVEROOT/SSH_HOST/files
+#                                    ARCHIVEROOT/SSH_HOST/files/main
+#                                    ARCHIVEROOT/SSH_HOST/files/YYYYMMDD
+#
+# path backups if execute as client: ARCHIVEROOT/hostname/files
+#                                    ARCHIVEROOT/hostname/files/main
+#                                    ARCHIVEROOT/hostname/files/YYYYMMDD
+
+. ${_CONFIGDIR}/manager-functions
+
+
+main() {
+  ret=256
+
+  ${BACKUP_FILES} && {
+    echo ""
+    checking_global_vars
+    now=$(/bin/date +%Y%m%d)
+
+    week_now=$(/bin/date +%u)
+    [ ${FILES_WEEK_DAY} -ne ${week_now} ] && [ ${FILES_WEEK_DAY} -gt -1 ] && {
+      exit $ret
+    }
+
+    ${SERVER} && HOSTNAME="${SSH_HOST}" || HOSTNAME="$(hostname -f)"
+
+    backup_dir="${ARCHIVEROOT}/${HOSTNAME}/files"
+    printf "Stating backup files ${HOSTNAME}, `/bin/date`\n"
+
+    export RSYNC_RSH="ssh -i ${SSH_KEY} -p ${SSH_PORT}"
+
+    ${ROOTFS} && {
+      /bin/cat > /tmp/${HOSTNAME}.exclude.txt << EOF
+/dev/*
+/proc/*
+/sys/*
+/tmp/*
+/run/*
+/mnt/*
+/media/*
+/lost-found
+EOF
+
+      BACKUP_DIR=""
+      dir=""
+      main="${backup_dir}/${now}"
+      rsync_options=("-aAX" "--exclude-from=/tmp/${HOSTNAME}.exclude.txt")
+      printf "Start backup ROOTFS\n"
+
+      ${SERVER} && main_backup_server || main_backup_client
+      ret=$?
+
+      printf "Finish backup ROOTFS\n"
+    }
+
+    BACKUP_DIR=(${BACKUP_DIR})
+    for dir in ${BACKUP_DIR[@]}; do
+      main="${backup_dir}/main${dir}"
+      increment="${backup_dir}/${now}"
+      rsync_options=("--force" "--ignore-errors" "--delete" \
+                     "--backup" "--backup-dir=${increment}" "-azh")
+
+      printf "Start backup $dir\n"
+      ${SERVER} && main_backup_server || main_backup_client
+      ret=$?
+
+      printf "Finish backup $dir\n"
+    done  #for dir in ${BACKUP_DIR[@]}
+
+    ${SERVER} && {
+      ls -lh ${backup_dir}
+    } || {
+      _ssh_exec ${sshauth} --cmd="du -sh ${backup_dir}"
+    }
+    printf "Finish backup files ${HOSTNAME}, `/bin/date`\n"
+  }  #${BACKUP_FILES}
+
+  exit $ret
+}  #main
+
+
+main_backup_server() {
+  filepath="${increment}${dir//\//.}.tar.gz"
+  if [ -f "${filepath}" ]; then
+    printf "Backup is done.\n"
+    return 0
+  fi
+
+  mkdir -p ${main}
+  connection=("${SSH_USER}@${SSH_HOST}:${dir}/" "${main}")
+
+  /usr/bin/rsync "${rsync_options[@]}" "${connection[@]}"
+  retval=$?
+
+  if [ ${retval} -eq 0 ]; then
+    [ -d ${increment} ] && tar -czf ${filepath} -C ${increment} .
+    [ -d ${increment} ] && rm -Rf ${increment}
+    out=$(find ${backup_dir} -maxdepth 1 -name "*.tar.gz" -mtime +${DAYS} \
+                                  -exec rm -vRf {} \;)
+
+    [ "${out}" != "" ] && printf "Remove backups higher than ${DAYS}\n${out}\n"
+
+  else
+    printf "Error: Cannot execute rsync\n"
+  fi
+
+  return $retval
+}  #main_backup_server
+
+
+main_backup_client() {
+  sshauth="--host=$SSH_HOST --user=$SSH_USER --port=$SSH_PORT --keyfile=$SSH_KEY"
+
+  _ssh_exec ${sshauth} --cmd="mkdir -p ${main}"
+  connection=("${dir}/" "${SSH_USER}@${SSH_HOST}:${main}")
+
+  /usr/bin/rsync "${rsync_options[@]}" "${connection[@]}"
+  retval=$?
+
+  if [ ${retval} -eq 0 ]; then
+    filepath="${increment}${dir/\//.}.tar.gz"
+    _ssh_exec $sshauth --cmd="[ -d ${increment} ] && \
+                              tar -czf ${filepath} -C ${increment} .; \
+                              [ -d ${increment} ] && rm -Rf ${increment}"
+
+    out=$(_ssh_exec ${sshauth} --cmd="find ${backup_dir} \
+          -maxdepth 1 -name 2*.tar.gz -mtime +${DAYS} -exec rm -vRf {} \;")
+
+    [ "${out}" != "" ] && printf "Remove backups higher than ${DAYS}\n${out}\n"
+
+  else
+    printf "Error: Cannot execute rsync\n"
+  fi
+
+  return $retval
+}  #main_backup_client
+
+
+checking_global_vars() {
+  if [ -z "${SSH_HOST}" ] || [ "${SSH_HOST}" == "" ]; then
+    printf "SSH_HOST not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_USER}" ] || [ "${SSH_USER}" == "" ]; then
+    printf "SSH_USER not defined\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_PORT}" ] || [ "${SSH_PORT}" == "" ] || \
+     [[ ! "${SSH_PORT}" =~ [0-9]+ ]]; then
+    printf "SSH_PORT not defined or value is not numeric\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_KEY}" ] || [ "${SSH_KEY}" == "" ] || \
+     [ ! -f "${SSH_KEY}" ]; then
+    printf "SSH_KEY not defined or file not exists\n"
+    exit 1
+  fi
+
+  if [ -z "${SSH_USER}" ] || [ "${SSH_USER}" == "" ]; then
+    printf "SSH_USER not defined"
+    exit 1
+  fi
+
+  if [ -z "${BACKUP_DIR}" ] || [ "${BACKUP_DIR}" == "" ]; then
+    ${ROOTFS} || {
+      printf "BACKUP_DIR not defined"
+      exit 1
+    }
+  fi
+
+  if [ -z "${TEMPDIR}" ] || [ "${TEMPDIR}" == "" ] || \
+     [ ! -d "${TEMPDIR}" ]; then
+    TEMPDIR=/var/tmp
+  fi
+
+  if [ -z "${DAYS}" ] || [ "${DAYS}" == "" ]; then
+    DAYS=25
+  fi
+
+  if [ -z "${FILES_WEEK_DAY}" ] || [ "${FILES_WEEK_DAY}" == "" ]; then
+    FILES_WEEK_DAY=-1
+  fi
+}  #checking_global_vars
+
+
+main
