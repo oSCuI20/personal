@@ -1,0 +1,6 @@
+DEVICE=''
+sgdisk --clear \
+  --new 1::+1M --typecode=1:ef02 --change-name=1:'BIOS boot partition' \
+  --new 2::+100M --typecode=2:ef00 --change-name=2:'EFI System' \
+  --new 3::-0 --typecode=3:8300 --change-name=3:'Linux root filesystem' \
+  ${DEVICE}

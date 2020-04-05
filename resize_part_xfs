@@ -1,0 +1,18 @@
+
+Comprobar si está instalado el paquete:
+
+* Centos rpm -aq | grep cloud-utils-growpart
+* Debian dpkg -l | grep cloud-guest-utils
+
+Instalar el paquete si no está instalado:
+
+* Centos 7 yum -y install cloud-utils-growpart
+* Debian 9 apt -y install cloud-guest-utils
+
+Redimensionar la partición:
+
+* growpart /dev/<device> <number>
+
+Extender las partición:
+
+* xfs_growfs /

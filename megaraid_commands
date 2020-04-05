@@ -1,0 +1,21 @@
+
+# Apagar alarma
+/usr/sbin/megacli -AdpSetProp AlarmSilence -a0
+
+# Listar información de los discos conectados
+/usr/sbin/megacli -PDList -aAll
+
+# Comprobar el estado de reconstrucción
+/usr/sbin/megacli -PDRbld -ShowProg -PhysDrv [252:0] -a0
+
+# Marcar un disco como bueno
+/usr/sbin/megacli -PDMakeGood -PhysDrv [252:7] -a0
+
+# Ver información de la bateria
+/usr/sbin/megacli -AdpBbuCmd -aAll
+
+# Volumen logicos
+/usr/sbin/megacli -LDInfo -L0 -a0
+
+# Comprobar estado de Reconstrucción, tras expansión del volumen.
+megacli -LDRecon ShowProg L0 -a0
