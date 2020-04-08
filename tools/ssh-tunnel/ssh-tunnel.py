@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# management.py
 # Eduardo Banderas Alba
 #
 # Abre tunel inverso contra un servidor
