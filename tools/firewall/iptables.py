@@ -65,6 +65,7 @@ def main():
 
   if not os.path.isfile(sys.argv[1]):
     print('No existe el fichero')
+    sys.exit(1)
 
   with open(sys.argv[1], 'r') as f:
     try:
