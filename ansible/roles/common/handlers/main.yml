@@ -1,0 +1,8 @@
+- name: restart sshd
+  service: name=sshd state=restarted enabled=yes
+
+- name: restart postfix
+  service: name=postfix state=restarted enabled=yes
+
+- name: rkhunter propupd
+  raw: rkhunter --propupd

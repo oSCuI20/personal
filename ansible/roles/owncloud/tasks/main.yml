@@ -1,0 +1,28 @@
+- name: Display
+  debug:
+    msg: "Run role {{ role_path | basename }}"
+
+- name: Import owncloud gpg key
+  rpm_key:
+    key: https://download.owncloud.org/download/repositories/production/CentOS_8/repodata/repomd.xml.key
+    state: present
+
+- name: Add repository
+  yum_repository:
+    name: owncloud
+    state: present
+    description: CentOS $releasever - owncloud
+    file: owncloud
+    baseurl: http://download.owncloud.org/download/repositories/production/CentOS_8
+    gpgcheck: yes
+    enabled: yes
+    gpgkey:
+      - http://download.owncloud.org/download/repositories/production/CentOS_8/repodata/repomd.xml.key
+
+- name: Install owncloud
+  dnf:
+    name: owncloud-files
+    state: latest
+
+- name: Move owncloud directory
+  shell: if [ -d /var/www/html/owncloud ]; then mv /var/www/html/owncloud /var/www/. ; fi

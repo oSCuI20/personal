@@ -1,0 +1,14 @@
+- name: Display
+  debug:
+    msg: "Run role {{ role_path | basename }}"
+
+- name: Updating system packages
+  dnf:
+    name: httpd
+    state: latest
+  register: dnfoutput
+
+- debug:
+    msg: "{{ item }}"
+  loop: "{{ dnfoutput.results }}"
+  when: dnfoutput.results|length > 0

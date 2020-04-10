@@ -1,0 +1,35 @@
+- name: Install sudo command
+  dnf:
+    name: "{{ utils }}"
+    state: latest
+  vars:
+    utils:
+      - sudo
+  when: sudo_enabled
+# Password python -c "from passlib.hash import sha512_crypt; import getpass; print(sha512_crypt.using(rounds=5000).hash(getpass.getpass()))"
+#
+
+- name: Add users
+  user:
+    name: "{{ item.user }}"
+    password: "{{ item.passwd }}"
+  loop: "{{ addusers.users }}"
+
+- name: Authorized keys updates
+  authorized_key:
+    user: "{{ item.user }}"
+    state: present
+    key: "{{ item.key }}"
+  loop: "{{ addusers.users }}"
+
+- name: Set sudoers users
+  template: src=./sudoers.j2 dest=/etc/sudoers
+  when: sudo_enabled
+
+- name: Update pam -> /etc/pam.d/system-auth
+  copy: src=./etc/pam.d/system-auth dest=/etc/pam.d/system-auth
+
+- name: Reset password on login
+  shell: chage --lastday 0 {{ item.user }}
+  loop: "{{ addusers.users }}"
+  when: item.forcechangepassword

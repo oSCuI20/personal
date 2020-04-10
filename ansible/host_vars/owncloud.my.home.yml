@@ -1,0 +1,40 @@
+config:
+  hostname: owncloud.my.home
+  relayhost: localhost
+
+httpd:
+  default_servername: owncloud.my.home
+
+sudo_enabled: True
+
+addusers:
+  users:
+    - {
+        'user': 'myuser',
+        'passwd': 'password',
+        'key': 'ecdsa-sha2-nistp384 public key',  ## Add into authorized_keys
+        'forcechangepassword': True
+      }
+
+  sudousers:
+    - myuser  ## Add if sudo_enabled is True
+
+php:
+  version: 7.3
+  fpm: True
+  packages:
+    - php-gd
+    - php-cli
+    - php-xml
+    - php-imap
+    - php-json
+    - php-pear
+    - php-soap
+    - php-tidy
+    - php-zstd
+    - php-bcmath
+    - php-common
+    - php-xmlrpc
+    - php-mysqlnd
+    - php-opcache
+    - php-mbstring

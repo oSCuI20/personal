@@ -1,0 +1,30 @@
+- name: Epel&REMI repository
+  dnf:
+    name: "{{ repositories }}"
+  vars:
+    repositories:
+      - https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+      - epel-release
+
+- name: Install PHP {{ php.version }}
+  dnf:
+    name: "{{ phppackages }}"
+    state: latest
+  vars:
+    phppackages:
+      - php{{ php.version.replace('.', '') }}
+      - php{{ php.version.replace('.', '') }}-php
+
+- name: Install PHP-FPM
+  dnf:
+    name: php{{ php.version.replace('.', '') }}-php-fpm
+    state: latest
+  when: php.fpm
+
+- name: SELinux module php-fpm
+  copy: src='./etc/selinux/modules/php-fpm.pp' dest='/tmp/php-fpm.pp'
+  when: sepolicy == 'enforcing'
+
+- name: Install php-fpm module
+  shell: semodule -i /tmp/php-fpm.pp
+  when: sepolicy == 'enforcing' and php.fpm

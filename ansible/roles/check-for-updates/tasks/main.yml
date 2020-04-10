@@ -1,0 +1,10 @@
+- name: Packages for updates
+  dnf:
+    list: updates
+    state: latest
+  register: dnfoutput
+
+- debug:
+    msg: "{{ item.name }}  {{ item.release }}   {{ item.repo }}"
+  loop: "{{ dnfoutput.results }}"
+  when: dnfoutput.results|length > 0

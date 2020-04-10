@@ -1,0 +1,51 @@
+- name: Display
+  debug:
+    msg: "Run role {{ role_path | basename }}"
+
+- name: Install httpd
+  dnf:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+      - httpd
+      - mod_ssl
+
+- name: Configure SELinux - Allow httpd connect remote database.
+  seboolean:
+    name: httpd_can_network_connect
+    state: true
+    persistent: yes
+  when: sepolicy == 'enforcing'
+
+- name: Configure SELinux - Allow httpd connect remote database.
+  seboolean:
+    name: httpd_can_network_connect_db
+    state: true
+    persistent: yes
+  when: sepolicy == 'enforcing'
+
+- name: Configure SELinux - Allow memcache connect.
+  seboolean:
+    name: httpd_can_network_memcache
+    state: true
+    persistent: yes
+  when: sepolicy == 'enforcing'
+
+- name: Configure SELinux - Allow sendmail.
+  seboolean:
+    name: httpd_can_sendmail
+    state: true
+    persistent: yes
+  when: sepolicy == 'enforcing'
+
+- name: http service state
+  service:
+    name: httpd
+    state: started
+    enabled: yes
+
+- name: ServerName
+  template: src=./servername.conf.j2 dest=/etc/httpd/conf.d/servername.conf
+  tags: common tools file-conf
+  notify: rkhunter propupd

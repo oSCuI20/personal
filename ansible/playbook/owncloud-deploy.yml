@@ -1,0 +1,20 @@
+- name: Owncloud Server
+  hosts: owncloud.my.home
+  gather_facts: False
+
+  pre_tasks:
+    - name: Install python
+      raw: if ! rpm -aq | grep '^python3$'; then dnf -y install python3; fi
+
+    - name: Set python3 as default
+      raw: alternatives --set python /usr/bin/python3
+
+  remote_user: root
+
+  roles:
+    #- common
+    - addusers
+    #- selinux
+    #- owncloud
+    #- check-for-updates
+    #- os-update

@@ -1,0 +1,15 @@
+- name: Configure SELinux SSH Port 22571
+  seport:
+    setype: ssh_port_t
+    proto: tcp
+    ports: 22910
+    state: present
+  tags: ssh-server
+
+- name: SSH Config
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: './etc/ssh/sshd_config', dest: '/etc/ssh/sshd_config', owner: 'root', group: 'root', mode: 0644 }
+    - { src: './etc/sysconfig/sshd', dest: '/etc/sysconfig/sshd', owner: 'root', group: 'root', mode: 0640 }
+  tags: ssh-server
+  notify: restart sshd

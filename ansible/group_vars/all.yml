@@ -1,0 +1,2 @@
+ansible_port: 22
+sepolicy: enforcing

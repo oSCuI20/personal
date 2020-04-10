@@ -1,0 +1,74 @@
+- name: Display
+  debug:
+    msg: "Run role {{ role_path | basename }}"
+
+- name: Set hostname {{ config.hostname }}
+  raw: hostnamectl set-hostname {{ config.hostname }}
+
+- name: Write /etc/hostname
+  raw: echo {{ config.hostname }} > /etc/hostname
+
+- name: Epel&REMI repository
+  dnf:
+    name: "{{ repositories }}"
+  vars:
+    repositories:
+      - https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+      - epel-release
+  tags: common repository
+
+- name: Copy Atomic GPG keys
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: './etc/gpg/RPM-GPG-KEY.art.txt', dest: '/etc/pki/rpm-gpg/RPM-GPG-KEY.art.txt', owner: 'root', group: 'root', mode: 0644 }
+    - { src: './etc/gpg/RPM-GPG-KEY.atomicorp.txt', dest: '/etc/pki/rpm-gpg/RPM-GPG-KEY.atomicorp.txt', owner: 'root', group: 'root', mode: 0644 }
+  tags: common repository
+
+- name: Atomic repository
+  yum_repository:
+    name: Atomic
+    state: present
+    description: CentOS $releasever - atomic
+    file: atomic
+    mirrorlist: http://updates.atomicorp.com/channels/mirrorlist/atomic/centos-$releasever-$basearch
+    gpgcheck: yes
+    enabled: no
+    gpgkey:
+      - file:///etc/pki/rpm-gpg/RPM-GPG-KEY.art.txt
+      - file:///etc/pki/rpm-gpg/RPM-GPG-KEY.art.txt
+  tags: common repository
+
+- name: Install tools
+  dnf:
+    name: "{{ utils }}"
+    state: latest
+  vars:
+    utils:
+      - yum-utils
+      - wget
+      - iptables-services
+      - tcpdump
+      - htop
+      - iftop
+      - rkhunter
+      - net-snmp
+      - net-snmp-utils
+      - net-snmp-libs
+      - chrony
+      - postfix
+      - net-tools
+  tags: common tools packages
+
+- name: General config files
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: './etc/cron.daily/rkhunter', dest: '/etc/cron.daily/rkhunter', owner: 'root', group: 'root', mode: 0755 }
+    - { src: './etc/rkhunter.conf',       dest: '/etc/rkhunter.conf',       owner: 'root', group: 'root', mode: 0644 }
+    - { src: './etc/sysconfig/rkhunter',  dest: '/etc/sysconfig/rkhunter',  owner: 'root', group: 'root', mode: 0644 }
+  tags: common tools file-conf rkhunter
+  notify: rkhunter propupd
+
+- name: postfix configuration
+  template: src=./main.cf.j2 dest=/etc/postfix/main.cf
+  tags: postfix-client-config
+  notify: restart postfix

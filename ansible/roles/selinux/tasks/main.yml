@@ -1,0 +1,42 @@
+- name: Install SELinux tools
+  dnf:
+    name: "{{ items }}"
+  vars:
+    items:
+      - libselinux
+      - libselinux-utils
+      - libsemanage
+      - libsepol
+      - policycoreutils
+      - checkpolicy
+      - policycoreutils-python-utils
+      - python3-libselinux
+      - python3-audit
+      - python3-libsemanage
+      - python3-policycoreutils
+      - python3-setools
+      - selinux-policy
+      - selinux-policy-targeted
+  when: sepolicy == 'enforcing'
+  tags: selinux
+
+- name: SELinux -> Enforcing
+  selinux:
+    policy: targeted
+    state: 'enforcing'
+  when: sepolicy == 'enforcing'
+  tags: selinux
+
+- name: SELinux -> Permissive
+  selinux:
+    policy: targeted
+    state: permissive
+  when: sepolicy == 'permissive'
+  tags: selinux
+
+- name: SELinux -> Disabled
+  selinux:
+    policy: targeted
+    state: disabled
+  when: sepolicy == 'disabled'
+  tags: selinux
