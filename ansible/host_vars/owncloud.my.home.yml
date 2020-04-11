@@ -1,6 +1,6 @@
 config:
   hostname: owncloud.my.home
-  relayhost: localhost
+  relayhost: smtp.faecta.coop
 
 httpd:
   default_servername: owncloud.my.home
@@ -20,8 +20,14 @@ addusers:
     - myuser  ## Add if sudo_enabled is True
 
 php:
-  version: 7.3
+  version: '7.3'
   fpm: True
+  fpmconf:
+    {
+      'process_control_timeout': 30,
+      'process_max': 128,
+      'systemd_interval': 10
+    }
   packages:
     - php-gd
     - php-cli

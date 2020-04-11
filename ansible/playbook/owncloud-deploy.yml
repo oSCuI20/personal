@@ -13,8 +13,9 @@
 
   roles:
     #- common
-    - addusers
+    #- addusers
     #- selinux
     #- owncloud
     #- check-for-updates
     #- os-update
+    - php

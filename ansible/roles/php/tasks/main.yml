@@ -28,3 +28,7 @@
 - name: Install php-fpm module
   shell: semodule -i /tmp/php-fpm.pp
   when: sepolicy == 'enforcing' and php.fpm
+
+- name: PHP-FPM Config
+  template: src=./php-fpm.conf.j2 dest=/etc/php-fpm.conf
+  when: php.fpm
