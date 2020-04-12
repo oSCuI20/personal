@@ -1,3 +1,5 @@
+# Configuración de pruebas.
+
 config:
   hostname: owncloud.my.home
   relayhost: smtp.faecta.coop
