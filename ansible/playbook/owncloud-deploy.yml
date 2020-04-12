@@ -18,4 +18,4 @@
     #- owncloud
     #- check-for-updates
     #- os-update
-    - php
+    - httpd

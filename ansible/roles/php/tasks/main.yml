@@ -15,11 +15,54 @@
       - php{{ php.version.replace('.', '') }}
       - php{{ php.version.replace('.', '') }}-php
 
+- name: Set default PHP {{ php.version }}
+  raw: update-alternatives --install /usr/bin/php php /usr/bin/php{{ php.version.replace('.', '') }} 1
+
+- name: PID Folder
+  file:
+    path: "{% if 'fpmconf' in php and 'pid' in php.fpmconf and php.fpmconf.pid %}{{ php.fpmconf.pid | dirname }}{% else %}/run/php-fpm{% endif %}"
+    owner: root
+    group: root
+    mode: 0755
+    state: directory
+
+- name:  Logfile Folder
+  file:
+    path: "{% if 'fpmconf' in php and 'logfile' in php.fpmconf and php.fpmconf.logfile %}{{ php.fpmconf.logfile | dirname }}{% else %}/var/log/php-fpm{% endif %}"
+    owner: apache
+    group: root
+    mode: 0755
+    state: directory
+
+- name: Install PHP {{ php.version }} library
+  dnf:
+    name: "{{ phppackages }}"
+    state: latest
+  vars:
+    phppackages: "php{{ php.version.replace('.', '') }}-{{ item }}"
+  loop: "{{ php.libs }}"
+  when: "'libs' in php and php.libs|length > 0"
+
 - name: Install PHP-FPM
   dnf:
     name: php{{ php.version.replace('.', '') }}-php-fpm
     state: latest
   when: php.fpm
+
+- name: PHP-FPM Config
+  template:
+    src: ./php-fpm.conf.j2
+    dest: /etc/opt/remi/php{{ php.version.replace('.', '') }}/php-fpm.conf
+  when: php.fpm
+
+- name: PHP-FPM Pool config
+  template:
+    src: ./pool.conf.j2
+    dest: /etc/opt/remi/php{{ php.version.replace('.', '') }}/php-fpm.d/{{ site.name }}.conf
+  vars:
+    site: "{{ item }}"
+  loop: "{{ php.fpmsite }}"
+  when: "php.fpm and 'fpmsite' in php and php.fpmsite|length > 0"
 
 - name: SELinux module php-fpm
   copy: src='./etc/selinux/modules/php-fpm.pp' dest='/tmp/php-fpm.pp'
@@ -28,7 +71,3 @@
 - name: Install php-fpm module
   shell: semodule -i /tmp/php-fpm.pp
   when: sepolicy == 'enforcing' and php.fpm
-
-- name: PHP-FPM Config
-  template: src=./php-fpm.conf.j2 dest=/etc/php-fpm.conf
-  when: php.fpm

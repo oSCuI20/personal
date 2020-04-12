@@ -1,0 +1,58 @@
+Listen 443 https
+
+##  SSL Global Context
+
+SSLProtocol -ALL +TLSv1.1 +TLSv1.2 +TLSv1.3
+SSLCipherSuite ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA
+SSLHonorCipherOrder On
+SSLPassPhraseDialog  builtin
+SSLSessionCache         shmcb:/var/cache/mod_ssl/scache(512000)
+SSLSessionCacheTimeout  300
+Mutex default
+SSLRandomSeed startup file:/dev/urandom  256
+SSLRandomSeed connect builtin
+#SSLInsecureRenegotiation Off
+#SSLRandomSeed startup file:/dev/random  512
+#SSLRandomSeed connect file:/dev/random  512
+#SSLRandomSeed connect file:/dev/urandom 512
+
+SSLOpenSSLConfCmd DHParameters "/etc/ssl/certs/dhparam.pem"
+SSLCryptoDevice builtin
+
+## SSL Virtual Host Context
+
+<VirtualHost _default_:443>
+  LogFormat "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b" request
+
+  ErrorLog /var/log/httpd/ssl_error_log
+  CustomLog /var/log/httpd/ssl_access_log common
+  CustomLog /var/log/httpd/ssl_request_log request
+
+  LogLevel warn
+
+  SSLEngine On
+
+  SSLCertificateFile {% if 'crt' in cert and cert.crt %}
+  {{ cert.crt }}{% else %}/etc/pki/tls/certs/localhost.crt{% endif %}
+
+  SSLCertificateKeyFile {% if 'key' in cert and cert.key %}
+  {{ cert.key }}{% else %}/etc/pki/tls/private/localhost.key{% endif %}
+
+{% if 'chain' in cert and cert.chain %}
+  SSLCertificateChainFile {{ cert.chain }}{% endif %}
+
+{% if 'bundle' in cert and cert.bundle %}
+  SSLCACertificateFile {{ cert.bundle }}{% endif %}
+
+
+  SSLOptions +StrictRequire
+
+  <Files ~ "\.(cgi|shtml|phtml|php3?)$">
+    SSLOptions +StdEnvVars
+  </Files>
+  <Directory "/var/www/cgi-bin">
+    SSLOptions +StdEnvVars
+  </Directory>
+
+  SetEnvIf User-Agent ".*MSIE.*" nokeepalive ssl-unclean-shutdown downgrade-1.0 force-response-1.0
+</VirtualHost>

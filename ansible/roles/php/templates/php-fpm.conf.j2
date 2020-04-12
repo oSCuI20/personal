@@ -2,16 +2,6 @@
 ; FPM Configuration ;
 ;;;;;;;;;;;;;;;;;;;;;
 
-include=/etc/php-fpm.d/*.conf
-
-;;;;;;;;;;;;;;;;;;
-; Global Options ;
-;;;;;;;;;;;;;;;;;;
-
-daemonize = yes
-
-pid = /run/php-fpm/php-fpm.pid
-
 syslog.facility = daemon
 syslog.ident    = php-fpm
 
@@ -21,11 +11,22 @@ log_level = {% if 'fpmconf' in php and 'loglevel' in php.fpmconf and php.fpmconf
 
 error_log = {% if 'fpmconf' in php and 'logfile' in php.fpmconf and php.fpmconf.logfile %}
 {{ php.fpmconf.logfile }}{% else %}/var/log/php-fpm/error.log{% endif %}
+
 emergency_restart_interval = {% if 'fpmconf' in php and 'emergency_restart_interval' in php.fpmconf and php.fpmconf.emergency_restart_interval %}
 {{ php.fpmconf.emergency_restart_interval }}{% else %}120{% endif %}
+
 process_control_timeout    = {% if 'fpmconf' in php and 'process_control_timeout' in php.fpmconf and php.fpmconf.process_control_timeout %}
 {{ php.fpmconf.process_control_timeout }}{% else %}120{% endif %}
+
 process.max = {% if 'fpmconf' in php and 'process_max' in php.fpmconf and php.fpmconf.process_max %}
 {{ php.fpmconf.process_max }}{% else %}32{% endif %}
+
+daemonize = yes
+pid = {% if 'fpmconf' in php and 'pid' in php.fpmconf and php.fpmconf.pid %}
+{{ php.fpmconf.pid }}{% else %}/run/php-fpm/php-fpm.pid{% endif %}
+
 systemd_interval = {% if 'fpmconf' in php and 'systemd_interval' in php.fpmconf and php.fpmconf.systemd_interval %}
 {{ php.fpmconf.systemd_interval }}{% else %}60{% endif %}
+
+include={% if 'fpmconf' in php and 'include_conf' in php.fpmconf and php.fpmconf.include_conf %}
+{{ php.fpmconf.include_conf }}{% else %}/etc/php-fpm.d/*.conf{% endif %}

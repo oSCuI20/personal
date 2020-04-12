@@ -1,15 +1,54 @@
-- name: Display
-  debug:
-    msg: "Run role {{ role_path | basename }}"
-
 - name: Install httpd
   dnf:
-    name: "{{ packages }}"
+    name: "{{ httpdpackages }}"
     state: present
   vars:
-    packages:
+    httpdpackages:
       - httpd
       - mod_ssl
+      - openssl
+
+- name: Install httpd modules
+  dnf:
+    name: "{{ httpdmodules }}"
+    state: present
+  vars:
+    httpdmodules: "{{ item }}"
+  loop: "{{ httpd.modules }}"
+  when: "'modules' in httpd and httpd.modules|length > 0"
+
+- name: Generate config
+  template:
+    src: ./httpd.conf.j2
+    dest: /etc/httpd/conf/httpd.conf
+
+- name: Standard config
+  copy:
+    src: ./etc/httpd/conf.d/standard.mod.conf
+    dest: /etc/httpd/conf.d/00-standard.mod.conf
+
+- name: Set default servername
+  template:
+    src: ./servername.conf.j2
+    dest: /etc/httpd/conf.d/servername.conf
+
+- name: Diffie-Hellman
+  raw: if [ ! -f /etc/ssl/certs/dhparam.pem ]; then openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096; fi
+
+- name: Set default ssl config
+  template:
+    src: ./ssl.mod.conf.j2
+    dest: /etc/httpd/conf.d/ssl.mod.conf
+  vars:
+    cert: "{{ httpd.ssl_default_cert }}"
+
+- name: Copy httpd modules
+  synchronize:
+    archive: no
+    delete: yes
+    recursive: yes
+    src: ./etc/httpd/conf.modules.d/
+    dest: /etc/httpd/conf.modules.d
 
 - name: Configure SELinux - Allow httpd connect remote database.
   seboolean:
@@ -38,14 +77,3 @@
     state: true
     persistent: yes
   when: sepolicy == 'enforcing'
-
-- name: http service state
-  service:
-    name: httpd
-    state: started
-    enabled: yes
-
-- name: ServerName
-  template: src=./servername.conf.j2 dest=/etc/httpd/conf.d/servername.conf
-  tags: common tools file-conf
-  notify: rkhunter propupd

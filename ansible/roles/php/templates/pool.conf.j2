@@ -1,0 +1,202 @@
+; Pool name
+{% if 'name' in site and site.name %}[{{ site.name }}]{% else %}[www]{% endif %}
+
+; Unix user/group of processes
+    user = {% if 'user' in site and site.user %}{{ site.user }}{% else %}apache{% endif %}
+
+group = {% if 'group' in site and site.group %}{{ site.group }}{% else %}apache{% endif %}
+
+listen = {% if 'listen' in site and site.listen %}{{ site.listen }}{% else %}/var/opt/remi/php{{ php.version.replace('.', '') }}/run/php-fpm/www.sock{% endif %}
+
+listen.acl_users = {% if 'user' in site and site.user %}{{ site.user }}{% else %}apache{% endif %}
+
+listen.allowed_clients = {% if 'allow_clients' in site and site.allow_clients %}
+{{ site.allow_clients }}
+  {% else %}
+127.0.0.1
+  {% endif %}
+
+
+; Per pool prefix
+; It only applies on the following directives:
+; - 'access.log'
+; - 'slowlog'
+; - 'listen' (unixsocket)
+; - 'chroot'
+; - 'chdir'
+; - 'php_values'
+; - 'php_admin_values'
+; When not set, the global prefix (or @php_fpm_prefix@) applies instead.
+; Note: This directive can also be relative to the global prefix.
+; Default Value: none
+;prefix = /path/to/pools/$pool
+
+
+
+; Specify the nice(2) priority to apply to the pool processes (only if set)
+; The value can vary from -19 (highest priority) to 20 (lower priority)
+; Note: - It will only work if the FPM master process is launched as root
+;       - The pool processes will inherit the master process priority
+;         unless it specified otherwise
+; Default Value: no set
+; process.priority = -19
+
+; Set the process dumpable flag (PR_SET_DUMPABLE prctl) even if the process user
+; or group is differrent than the master process user. It allows to create process
+; core dump and ptrace the process for the pool user.
+; Default Value: no
+; process.dumpable = yes
+
+pm = {% if 'pm' in site and site.pm %}{{ site.pm }}{% else %}dynamic{% endif %}
+
+pm.max_children = {% if 'pm_max_children' in site and site.pm_max_children %}{{ site.pm_max_children }}{% else %}50{% endif %}
+
+pm.start_servers = {% if 'pm_start_servers' in site and site.pm_start_servers %}
+{{ site.pm_start_servers }}{% else %}5{% endif %}
+
+pm.min_spare_servers = {% if 'pm_min_spare_servers' in site and site.pm_min_spare_servers %}
+{{ site.pm_min_spare_servers }}{% else %}5{% endif %}
+
+pm.max_spare_servers = {% if 'pm_max_spare_servers' in site and site.pm_max_spare_servers %}
+{{ site.pm_max_spare_servers }}{% else %}50{% endif %}
+
+; The number of seconds after which an idle process will be killed.
+; Note: Used only when pm is set to 'ondemand'
+; Default Value: 10s
+{% if 'pm_proc_idle_timeout' in site and site.pm_proc_idle_timeout %}
+pm.process_idle_timeout = {{ site.pm_proc_idle_timeout }}{% endif %}
+
+{% if 'pm_max_children' in site and site.pm_max_children %}
+pm.max_requests = {{ site.pm_max_children }}{% endif %}
+
+{% if 'pm_status_path' in site and site.pm_status_path %}
+pm.status_path = {{ site.pm_status_path }}{% endif %}
+
+{% if 'ping_path' in site and site.ping_path %}
+ping.path = {{ site.ping_path }}{% endif %}
+
+{% if 'ping_response' in site and site.ping_response %}
+ping.response = {{ site.ping_response }}{% endif %}
+
+{% if 'log_access' in site and site.log_access %}
+access.log = {{ site.log_access }}{% endif %}
+
+; Default: "%R - %u %t \"%m %r\" %s"
+; access.format = "%R - %u %t \"%m %r%Q%q\" %s %f %{mili}d %{kilo}M %C%%"
+{% if 'log_format' in site and site.log_format %}
+access.format = {{ site.log_format }}{% endif %}
+
+slowlog = {% if 'log_slow_req' in site and site.log_slow_req %}
+{{ site.log_slow_req }}
+  {% else %}
+/var/opt/remi/php{{ php.version.replace('.', '') }}/log/php-fpm/www-slow.log
+  {% endif %}
+
+;request_slowlog_timeout = 0
+{% if 'slow_req_timeout' in site and site.slow_req_timeout %}
+request_slowlog_timeout = {{ site.slow_req_timeout }}{% endif %}
+
+; Depth of slow log stack trace.
+; Default Value: 20
+;request_slowlog_trace_depth = 20
+
+; The timeout for serving a single request after which the worker process will
+; be killed. This option should be used when the 'max_execution_time' ini option
+; does not stop script execution for some reason. A value of '0' means 'off'.
+; Available units: s(econds)(default), m(inutes), h(ours), or d(ays)
+; Default Value: 0
+;request_terminate_timeout = 0
+
+; Set open file descriptor rlimit.
+; Default Value: system defined value
+;rlimit_files = 1024
+
+; Set max core size rlimit.
+; Possible Values: 'unlimited' or an integer greater or equal to 0
+; Default Value: system defined value
+;rlimit_core = 0
+
+; Chroot to this directory at the start. This value must be defined as an
+; absolute path. When this value is not set, chroot is not used.
+; Note: you can prefix with '$prefix' to chroot to the pool prefix or one
+; of its subdirectories. If the pool prefix is not set, the global prefix
+; will be used instead.
+; Note: chrooting is a great security feature and should be used whenever
+;       possible. However, all PHP paths will be relative to the chroot
+;       (error_log, sessions.save_path, ...).
+; Default Value: not set
+;chroot =
+
+; Chdir to this directory at the start.
+; Note: relative path can be used.
+; Default Value: current directory or / when chroot
+;chdir = /var/www
+
+; Redirect worker stdout and stderr into main error log. If not set, stdout and
+; stderr will be redirected to /dev/null according to FastCGI specs.
+; Note: on highloaded environement, this can cause some delay in the page
+; process time (several ms).
+; Default Value: no
+;catch_workers_output = yes
+
+; Clear environment in FPM workers
+; Prevents arbitrary environment variables from reaching FPM worker processes
+; by clearing the environment in workers before env vars specified in this
+; pool configuration are added.
+; Setting to "no" will make all environment variables available to PHP code
+; via getenv(), $_ENV and $_SERVER.
+; Default Value: yes
+;clear_env = no
+
+; Limits the extensions of the main script FPM will allow to parse. This can
+; prevent configuration mistakes on the web server side. You should only limit
+; FPM to .php extensions to prevent malicious users to use other extensions to
+; execute php code.
+; Note: set an empty value to allow all extensions.
+; Default Value: .php
+;security.limit_extensions = .php .php3 .php4 .php5 .php7
+
+; Pass environment variables like LD_LIBRARY_PATH. All $VARIABLEs are taken from
+; the current environment.
+; Default Value: clean env
+;env[HOSTNAME] = $HOSTNAME
+;env[PATH] = /usr/local/bin:/usr/bin:/bin
+;env[TMP] = /tmp
+;env[TMPDIR] = /tmp
+;env[TEMP] = /tmp
+
+{% if 'php_admin_values' in site %}
+{% if 'error_log' not in site.php_admin_values.keys() %}
+php_admin_value[error_log] = /var/opt/remi/php{{ php.version.replace('.', '') }}/log/php-fpm/www-error.log
+{% endif %}
+{% for key, value in site.php_admin_values.items() %}
+php_admin_value[{{ key }}] = {{ value }}
+{% endfor %}
+{% endif %}
+{% if 'php_admin_flags' in site %}
+{% if 'log_errors' not in site.php_admin_flags.keys() %}
+php_admin_flag[log_errors] = on
+{% endif %}
+{% for key, value in site.php_admin_flags.items() %}
+php_admin_flag[{{ key }}] = {{ value }}
+{% endfor %}
+{% endif %}
+{% if 'php_values' in site %}
+{% if 'session.save_handler' not in site.php_values.keys() %}
+php_value[session.save_handler] = files
+{% endif %}
+{% if 'session.save_path' not in site.php_values.keys() %}
+php_value[session.save_path]    = /var/opt/remi/php{{ php.version.replace('.', '') }}/lib/php/session
+{% endif %}
+{% if 'soap.wsdl_cache_dir' not in site.php_values.keys() %}
+php_value[soap.wsdl_cache_dir]  = /var/opt/remi/php{{ php.version.replace('.', '') }}/lib/php/wsdlcache
+{% endif %}
+{% for key, value in site.php_values.items() %}
+php_value[{{ key }}] = {{ value }}
+{% endfor %}
+{% endif %}
+{% if 'php_flags' in site %}
+{% for key, value in site.php_flags.items() %}
+php_flag[{{ key }}] = {{ value }}
+{% endfor %}
+{% endif %}

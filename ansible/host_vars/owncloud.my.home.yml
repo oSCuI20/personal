@@ -4,6 +4,52 @@ config:
 
 httpd:
   default_servername: owncloud.my.home
+  timeout: 60
+  keepalive: 'Off'
+  maxkeepaliverequest: 120
+  keepalivetimeout: 45
+
+  prefork:
+    {
+      'startservers': 4,
+      'minspare': 16,
+      'maxspare': 64,
+      'limit': 128,
+      'maxclients': 128,
+      'max_req_per_child': 512
+    }
+  worker:
+    {
+      'startservers': 4,
+      'minspare': 16,
+      'maxspare': 64,
+      'maxclients': 256,
+      'th_per_child': 8,
+      'max_req_per_child': 128
+    }
+  header:
+    {
+      'set': [
+        'X-XSS-Protection "1; mode=block"',
+        'X-Content-Type-Options: nosniff',
+        'Strict-Transport-Security "max-age=31536000; includeSubDomains"'
+      ],
+      'append': [
+        'X-Frame-Options SAMEORIGIN'
+      ]
+    }
+  ssl_default_cert:
+    {
+      'crt': '',
+      'key': '',
+      'chain': ''
+    }
+  ssl_certs:
+    - {
+        'crt': '',
+        'key': '',
+        'chain': ''
+      }
 
 sudo_enabled: True
 
@@ -24,11 +70,69 @@ php:
   fpm: True
   fpmconf:
     {
+      'pid': '/run/php-fpm/php73-php-fpm.pid',
+      'logfile': '/var/log/php-fpm/my-fpm.error_log',
+      'include_conf': '/etc/opt/remi/php73/php-fpm.d/*.conf',
       'process_control_timeout': 30,
       'process_max': 128,
       'systemd_interval': 10
     }
-  packages:
+  fpmsite:
+    - {
+        'name': 'mysite',
+        'user': 'apache',
+        'group': 'apache',
+        'listen': '/run/php-fpm/mysite.sock',
+        'pm': 'dynamic',
+        'pm_max_children': 80,
+        'pm_start_servers': 8,
+        'pm_mim_spare_servers': 8,
+        'pm_max_spare_servers': 40,
+        'pm_proc_idle_timeout': '10s',
+        'pm_max_request': 800,
+        'pm_status_path': '/fpm-stats',
+        'ping_path': '/fpm-ping',
+        'ping_response': '/fpm-pong',
+        'log_access': '',
+        'log_format': '',
+        'log_slow_req': '/var/log/php-fpm/mysite-slow.log',
+        'slow_req_timeout': '30s',
+        'php_admin_values': {
+          'sendmail_path': '/usr/sbin/sendmail -t -i -f www@mysite.my.home',
+          'error_log': '/var/log/php-fpm/mysite.log'
+        },
+        'php_admin_flags': {
+          'log_errors': 'On'
+        },
+        'php_values': {
+          'session.save_handler': 'files'
+        },
+        'php_flags': {
+          'display_errors': 'off'
+        }
+      }
+    - {
+        'name': 'otrosite',
+        'user': 'apache',
+        'group': 'apache',
+        'listen': '/run/php-fpm/otrosite.sock',
+        'pm': 'dynamic',
+        'pm_max_children': 80,
+        'pm_start_servers': 8,
+        'pm_mim_spare_servers': 8,
+        'pm_max_spare_servers': 40,
+        'pm_proc_idle_timeout': '10s',
+        'pm_max_request': 800,
+        'log_access': '',
+        'log_format': '',
+        'log_slow_req': '/var/log/php-fpm/otrosite-slow.log',
+        'slow_req_timeout': '30s',
+        'php_admin_values': {
+          'sendmail_path': '/usr/sbin/sendmail -t -i -f www@otrosite.my.home',
+          'error_log': '/var/log/php-fpm/otrosite.log'
+        }
+      }
+  libs:
     - php-gd
     - php-cli
     - php-xml
@@ -44,3 +148,5 @@ php:
     - php-mysqlnd
     - php-opcache
     - php-mbstring
+    - php-pecl-zip
+    - php-intl
