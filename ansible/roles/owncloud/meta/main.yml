@@ -1,3 +1,4 @@
 dependencies:
   - role: httpd
   - role: php
+  - role: mysql-server

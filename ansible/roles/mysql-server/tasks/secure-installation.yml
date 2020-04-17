@@ -1,0 +1,24 @@
+---
+- name: Remove MySQL test database.
+  mysql_db:
+    name: 'test'
+    state: absent
+
+- name: Disallow root login remotely
+  shell: >
+    'mysql -NBe
+    "DELETE FROM mysql.user WHERE User='{{ mysql_root_username }}' AND
+                                  Host NOT IN ('localhost', '127.0.0.1', '::1')"'
+
+- name: Remove anonymous MySQL users
+  shell: >
+    'mysql -NBe
+    "DELETE FROM mysql.user WHERE User = \"\""'
+
+- name: Default user {{ mysql_server.default_username }}
+  mysql_user:
+    name: "{{ mysql_server.default_username }}"
+    host: 'localhost'
+    password: "{{ mysql_server.default_password }}"
+    priv: '*.*:ALL,GRANT'
+    state: present

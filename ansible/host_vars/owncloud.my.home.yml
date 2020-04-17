@@ -45,21 +45,7 @@ httpd:
   ssl: True
   letsencrypt: False
   selfsigned: True
-  vhost:
-    - {
-        'ssl': {
-          'crt': '/etc/pki/tls/certs/http.vhost.my.home.crt',
-          'key': '/etc/pki/tls/private/http.vhost.my.home.key',
-          'chain': ''
-        },
-        'document_root': '/var/www/owncloud',
-        'server_name': 'http.vhost.my.home',
-        'server_alias': [ ],
-        'redirect_https': True,
-        'logdirectory': '',
-        'allow_request_method': [ 'GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE' ],
-        'custom_for_site': ''
-      }
+  vhost: []
 
 sudo_enabled: True
 
@@ -180,3 +166,26 @@ php:
     - php-mbstring
     - php-pecl-zip
     - php-intl
+
+mysql_server:
+  packages:
+    - mariadb-server
+    - mariadb
+    - MySQL-python
+
+  options:
+    bind: '127.0.0.1'
+
+  databases:
+    - {
+        name: 'cloud_storage'
+      }
+
+  default_username: 'root'
+  default_password: 'test'
+  users:
+    - {
+        name: 'storage',
+        password: 'storage',
+        priv: 'cloud_storage.*:ALL, GRANT'
+      }

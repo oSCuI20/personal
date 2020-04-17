@@ -79,8 +79,8 @@
   remote_user: root
 
   roles:
-    #- common
-    #- addusers
-    #- selinux
+    - common
+    - addusers
+    - selinux
     - owncloud
     - os-update

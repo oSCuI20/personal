@@ -1,0 +1,29 @@
+- name: Install MySQL and MySQL python libraries
+  dnf:
+    name: "{{ packages }}"
+    state: latest
+  vars:
+    packages: {{ mysql_server.packages }}
+
+- include_tasks: secure-installation.yml
+
+# Create databases
+- name: MySQL databases
+  mysql_db:
+    name: "{{ item.name }}"
+    collation: "{{ item.collation | default('utf8_general_ci') }}"
+    encoding: "{{ item.encoding | default('utf8') }}"
+    state: "{{ item.state | default('present') }}"
+  with_items: "{{ mysql_server.databases }}"
+
+# Create users
+- name: MySQL users
+  mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host | default('localhost') }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv | default('*.*:USAGE') }}"
+    state: "{{ item.state | default('present') }}"
+    append_privs: "{{ item.append_privs | default('no') }}"
+    encrypted: "{{ item.encrypted | default('no') }}"
+  with_items: "{{ mysql_server.users }}"
