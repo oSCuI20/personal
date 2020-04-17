@@ -224,15 +224,13 @@ ServerSignature Off
 ServerTokens ProductOnly
 TraceEnable Off
 
-{% if 'header' in 'httpd' %}
-{% if 'append' in httpd.header %}
-{% for add in http.header.append %}
-Header always append {{ add }}
+{% if 'header' in httpd and 'append' in httpd.header %}
+{% for item in httpd.header.append %}
+Header always append {{ item }}
 {% endfor %}
 {% endif %}
-{% if 'set' in httpd.header %}
-{% for add in http.header.set %}
-Header always set {{ add }}
+{% if 'header' in httpd and 'set' in httpd.header %}
+{% for item in httpd.header.set %}
+Header always set {{ item }}
 {% endfor %}
-{% endif %}
 {% endif %}

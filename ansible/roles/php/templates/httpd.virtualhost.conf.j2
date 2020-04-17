@@ -1,0 +1,74 @@
+<VirtualHost *:80>
+  ServerName {{ site.httpd.server_name }}
+  ServerAlias {{ ' '.join(site.httpd.server_alias) }}
+{% if 'ssl' in httpd and httpd.ssl %}
+  Redirect 301 / https://{{ site.httpd.server_name }}/
+{% else %}
+
+  DocumentRoot {{ site.httpd.document_root }}
+  <Directory {{ site.httpd.document_root }}>
+      Options Indexes FollowSymLinks MultiViews
+      AllowOverride All
+      Order Allow,Deny
+      Allow from All
+
+      <IfModule mod_rewrite.c>
+          RewriteEngine On
+          RewriteCond %{REQUEST_METHOD} !^({% if 'allow_request_method' in site.httpd %}{{ '|'.join(site.httpd.allow_request_method) }}{% else %}GET|POST|HEAD{% endif %})$
+          RewriteRule .* -[F]
+      </IfModule>
+
+      Require all granted
+  </Directory>
+
+  ErrorLog /var/log/httpd{{ site.httpd.server_name }}_error_log
+  CustomLog /var/log/httpd/{{ site.httpd.server_name }}_access_log common
+  CustomLog /var/log/httpd/{{ site.httpd.server_name }}_request_log request
+{% endif %}
+</VirtualHost>
+
+
+{% if 'ssl' in httpd and httpd.ssl %}
+<VirtualHost *:443>
+  ServerName {{ site.httpd.server_name }}
+  ServerAlias {{ ' '.join(site.httpd.server_alias) }}
+
+  DocumentRoot {{ site.httpd.document_root }}
+  <Directory {{ site.httpd.document_root }}>
+      Options Indexes FollowSymLinks MultiViews
+      AllowOverride All
+      Order Allow,Deny
+      Allow from All
+
+      <IfModule mod_rewrite.c>
+          RewriteEngine On
+          RewriteCond %{REQUEST_METHOD} !^({% if 'allow_request_method' in site.httpd %}{{ '|'.join(site.httpd.allow_request_method) }}{% else %}GET|POST|HEAD{% endif %})$
+          RewriteRule .* -[F]
+      </IfModule>
+
+{% if php.fpm %}
+      # Enable http authorization headers
+      SetEnvIfNoCase ^Authorization$ "(.+)" HTTP_AUTHORIZATION=$1
+
+      <FilesMatch \.(php|phar)$>
+          SetHandler "proxy:unix:{{ site.listen }}|fcgi://localhost"
+      </FilesMatch>
+{% endif %}
+      Require all granted
+  </Directory>
+
+  SSLEngine On
+
+  ErrorLog /var/log/httpd/{{ site.httpd.server_name }}_ssl_error_log
+  CustomLog /var/log/httpd/{{ site.httpd.server_name }}_ssl_access_log common
+  CustomLog /var/log/httpd/{{ site.httpd.server_name }}_ssl_request_log request
+
+{% if 'ssl' in site and site.ssl %}
+  SSLCertificateFile {{ site.ssl.crt }}
+  SSLCertificateKeyFile {{ site.ssl.key }}
+{% endif %}
+{% if 'ssl' in site and site.ssl and 'chain' in site.ssl and site.ssl.chain %}
+  SSLCertificateFileChain {{ site.ssl.chain }}
+{% endif %}
+</VirtualHost>
+{% endif %}

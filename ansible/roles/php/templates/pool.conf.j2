@@ -2,7 +2,7 @@
 {% if 'name' in site and site.name %}[{{ site.name }}]{% else %}[www]{% endif %}
 
 ; Unix user/group of processes
-    user = {% if 'user' in site and site.user %}{{ site.user }}{% else %}apache{% endif %}
+user = {% if 'user' in site and site.user %}{{ site.user }}{% else %}apache{% endif %}
 
 group = {% if 'group' in site and site.group %}{{ site.group }}{% else %}apache{% endif %}
 
@@ -15,7 +15,6 @@ listen.allowed_clients = {% if 'allow_clients' in site and site.allow_clients %}
   {% else %}
 127.0.0.1
   {% endif %}
-
 
 ; Per pool prefix
 ; It only applies on the following directives:
@@ -30,8 +29,6 @@ listen.allowed_clients = {% if 'allow_clients' in site and site.allow_clients %}
 ; Note: This directive can also be relative to the global prefix.
 ; Default Value: none
 ;prefix = /path/to/pools/$pool
-
-
 
 ; Specify the nice(2) priority to apply to the pool processes (only if set)
 ; The value can vary from -19 (highest priority) to 20 (lower priority)
@@ -64,23 +61,23 @@ pm.max_spare_servers = {% if 'pm_max_spare_servers' in site and site.pm_max_spar
 ; Note: Used only when pm is set to 'ondemand'
 ; Default Value: 10s
 {% if 'pm_proc_idle_timeout' in site and site.pm_proc_idle_timeout %}
-pm.process_idle_timeout = {{ site.pm_proc_idle_timeout }}{% endif %}
-
+pm.process_idle_timeout = {{ site.pm_proc_idle_timeout }}
+{% endif %}
 {% if 'pm_max_children' in site and site.pm_max_children %}
-pm.max_requests = {{ site.pm_max_children }}{% endif %}
-
+pm.max_requests = {{ site.pm_max_children }}
+{% endif %}
 {% if 'pm_status_path' in site and site.pm_status_path %}
-pm.status_path = {{ site.pm_status_path }}{% endif %}
-
+pm.status_path = {{ site.pm_status_path }}
+{% endif %}
 {% if 'ping_path' in site and site.ping_path %}
-ping.path = {{ site.ping_path }}{% endif %}
-
+ping.path = {{ site.ping_path }}
+{% endif %}
 {% if 'ping_response' in site and site.ping_response %}
-ping.response = {{ site.ping_response }}{% endif %}
-
+ping.response = {{ site.ping_response }}
+{% endif %}
 {% if 'log_access' in site and site.log_access %}
-access.log = {{ site.log_access }}{% endif %}
-
+access.log = {{ site.log_access }}
+{% endif %}
 ; Default: "%R - %u %t \"%m %r\" %s"
 ; access.format = "%R - %u %t \"%m %r%Q%q\" %s %f %{mili}d %{kilo}M %C%%"
 {% if 'log_format' in site and site.log_format %}

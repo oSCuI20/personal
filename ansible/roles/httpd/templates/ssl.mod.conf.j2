@@ -32,18 +32,16 @@ SSLCryptoDevice builtin
 
   SSLEngine On
 
-  SSLCertificateFile {% if 'crt' in cert and cert.crt %}
-  {{ cert.crt }}{% else %}/etc/pki/tls/certs/localhost.crt{% endif %}
+  SSLCertificateFile {% if 'crt' in cert and cert.crt %}{{ cert.crt }}{% else %}/etc/pki/tls/certs/localhost.crt{% endif %}
 
-  SSLCertificateKeyFile {% if 'key' in cert and cert.key %}
-  {{ cert.key }}{% else %}/etc/pki/tls/private/localhost.key{% endif %}
+  SSLCertificateKeyFile {% if 'key' in cert and cert.key %}{{ cert.key }}{% else %}/etc/pki/tls/private/localhost.key{% endif %}
 
 {% if 'chain' in cert and cert.chain %}
-  SSLCertificateChainFile {{ cert.chain }}{% endif %}
-
+  SSLCertificateChainFile {{ cert.chain }}
+{% endif %}
 {% if 'bundle' in cert and cert.bundle %}
-  SSLCACertificateFile {{ cert.bundle }}{% endif %}
-
+  SSLCACertificateFile {{ cert.bundle }}
+{% endif %}
 
   SSLOptions +StrictRequire
 

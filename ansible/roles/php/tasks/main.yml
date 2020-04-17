@@ -26,7 +26,7 @@
     mode: 0755
     state: directory
 
-- name:  Logfile Folder
+- name: Logfile Folder
   file:
     path: "{% if 'fpmconf' in php and 'logfile' in php.fpmconf and php.fpmconf.logfile %}{{ php.fpmconf.logfile | dirname }}{% else %}/var/log/php-fpm{% endif %}"
     owner: apache
@@ -61,8 +61,36 @@
     dest: /etc/opt/remi/php{{ php.version.replace('.', '') }}/php-fpm.d/{{ site.name }}.conf
   vars:
     site: "{{ item }}"
-  loop: "{{ php.fpmsite }}"
-  when: "php.fpm and 'fpmsite' in php and php.fpmsite|length > 0"
+  loop: "{{ php.confsite }}"
+  when: "php.fpm and 'confsite' in php and php.confsite|length > 0"
+
+- name: Enable mod_php
+  template:
+    src: ./15-php.conf.j2
+    dest: /etc/httpd/conf.modules.d/15-php.conf
+  when: php.with_httpd and not php.fpm
+
+- name: Enable prefork module
+  copy:
+    src: ./etc/httpd/conf.modules.d/00-mpm.conf
+    dest: /etc/httpd/conf.modules.d/00-mpm.conf
+  when: php.with_httpd and not php.fpm
+
+- name: Copy php config module to httpd
+  template:
+    src: ./01-php.mod.conf.j2
+    dest: /etc/httpd/conf.d/01-php{{ php.version.replace('.', '') }}.mod.conf
+  when: php.with_httpd
+
+- name: Create httpd VirtualHost
+  template:
+    src: ./httpd.virtualhost.conf.j2
+    dest: /etc/httpd/conf.d/{{ site.httpd.server_name }}.vhost.conf
+  vars:
+    site: "{{ item }}"
+  loop: "{{ php.confsite }}"
+  when: "php.with_httpd and 'confsite' in php and php.confsite|length > 0 and
+         php.fpm and 'httpd' in item and item.httpd"
 
 - name: SELinux module php-fpm
   copy: src='./etc/selinux/modules/php-fpm.pp' dest='/tmp/php-fpm.pp'

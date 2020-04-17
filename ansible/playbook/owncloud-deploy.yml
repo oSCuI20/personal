@@ -9,13 +9,78 @@
     - name: Set python3 as default
       raw: alternatives --set python /usr/bin/python3
 
+    - name: Generate an OpenSSL private key with the default values (Default)
+      openssl_privatekey:
+        path: "{{ httpd.ssl_default_cert.key }}"
+      when: "'ssl' in httpd and httpd.ssl and httpd.selfsigned and
+             'ssl_default_cert' in httpd and httpd.ssl_default_cert"
+
+    - name: Generate an OpenSSL Certificate Signing Request with Subject information
+      openssl_csr:
+        path: /etc/pki/tls/certs/{{ config.hostname }}.csr
+        privatekey_path: "{{ httpd.ssl_default_cert.key }}"
+        country_name: ES
+        organization_name: Testing CA
+        common_name: "{{ config.hostname }}"
+      when: "'ssl' in httpd and httpd.ssl and
+             'selfsigned' in httpd and httpd.selfsigned and
+             'ssl_default_cert' in httpd and httpd.ssl_default_cert"
+
+    - name: Generate a Self Signed OpenSSL certificate (Default)
+      openssl_certificate:
+        path: "{{ httpd.ssl_default_cert.crt }}"
+        privatekey_path: "{{ httpd.ssl_default_cert.key }}"
+        csr_path: /etc/pki/tls/certs/{{ config.hostname }}.csr
+        provider: selfsigned
+      when: "'ssl' in httpd and httpd.ssl and
+             'selfsigned' in httpd and httpd.selfsigned and
+             'ssl_default_cert' in httpd and httpd.ssl_default_cert"
+
+    - name: Generate an OpenSSL private key with the default values (Vhost)
+      openssl_privatekey:
+        path: "{{ item.httpd.ssl.key }}"
+      loop: "{{ php.confsite }}"
+      when: "'ssl' in httpd and httpd.ssl and
+             'selfsigned' in httpd and httpd.selfsigned and
+             'httpd' in item and item.httpd and
+             'ssl' in item.httpd and item.httpd.ssl"
+
+    - name: Generate a Self Signed OpenSSL certificate (Vhost)
+      openssl_certificate:
+        path: "{{ item.httpd.ssl.crt }}"
+        privatekey_path: "{{ item.httpd.ssl.key }}"
+        csr_path: /etc/pki/tls/certs/{{ config.hostname }}.csr
+        provider: selfsigned
+      loop: "{{ php.confsite }}"
+      when: "'ssl' in httpd and httpd.ssl and
+             'selfsigned' in httpd and httpd.selfsigned and
+             'httpd' in item and item.httpd and
+             'ssl' in item.httpd and item.httpd.ssl"
+
+    - name: Generate an OpenSSL private key with the default values (Vhost)
+      openssl_privatekey:
+        path: "{{ item.ssl.key }}"
+      loop: "{{ httpd.vhost }}"
+      when: "'ssl' in httpd and httpd.ssl and
+             'selfsigned' in httpd and httpd.selfsigned and
+             'ssl' in item and item.ssl"
+
+    - name: Generate a Self Signed OpenSSL certificate (Vhost)
+      openssl_certificate:
+        path: "{{ item.ssl.crt }}"
+        privatekey_path: "{{ item.ssl.key }}"
+        csr_path: /etc/pki/tls/certs/{{ config.hostname }}.csr
+        provider: selfsigned
+      loop: "{{ httpd.vhost }}"
+      when: "'ssl' in httpd and httpd.ssl and
+             'selfsigned' in httpd and httpd.selfsigned and
+             'ssl' in item and item.ssl"
+
   remote_user: root
 
   roles:
     #- common
     #- addusers
     #- selinux
-    #- owncloud
-    #- check-for-updates
-    #- os-update
-    - httpd
+    - owncloud
+    - os-update

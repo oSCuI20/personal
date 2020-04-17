@@ -21,6 +21,7 @@
     state: present
     key: "{{ item.key }}"
   loop: "{{ addusers.users }}"
+  when: "'key' in item and item.key != ''"
 
 - name: Set sudoers users
   template: src=./sudoers.j2 dest=/etc/sudoers

@@ -5,52 +5,60 @@ config:
   relayhost: smtp.faecta.coop
 
 httpd:
-  default_servername: owncloud.my.home
+  default_servername: host01.my.home
   timeout: 60
   keepalive: 'Off'
   maxkeepaliverequest: 120
   keepalivetimeout: 45
 
-  prefork:
-    {
-      'startservers': 4,
-      'minspare': 16,
-      'maxspare': 64,
-      'limit': 128,
-      'maxclients': 128,
-      'max_req_per_child': 512
-    }
-  worker:
-    {
-      'startservers': 4,
-      'minspare': 16,
-      'maxspare': 64,
-      'maxclients': 256,
-      'th_per_child': 8,
-      'max_req_per_child': 128
-    }
-  header:
-    {
-      'set': [
-        'X-XSS-Protection "1; mode=block"',
-        'X-Content-Type-Options: nosniff',
-        'Strict-Transport-Security "max-age=31536000; includeSubDomains"'
-      ],
-      'append': [
-        'X-Frame-Options SAMEORIGIN'
-      ]
-    }
-  ssl_default_cert:
-    {
-      'crt': '',
-      'key': '',
-      'chain': ''
-    }
-  ssl_certs:
+  prefork: {
+    'startservers': 4,
+    'minspare': 16,
+    'maxspare': 64,
+    'limit': 128,
+    'maxclients': 128,
+    'max_req_per_child': 512
+  }
+  worker: {
+    'startservers': 4,
+    'minspare': 16,
+    'maxspare': 64,
+    'maxclients': 256,
+    'th_per_child': 8,
+    'max_req_per_child': 128
+  }
+  header: {
+    'set': [
+      'X-XSS-Protection "1; mode=block"',
+      'X-Content-Type-Options: nosniff',
+      'Strict-Transport-Security "max-age=31536000; includeSubDomains"'
+    ],
+    'append': [
+      'X-Frame-Options SAMEORIGIN'
+    ]
+  }
+  ssl_default_cert: {
+    'crt': '/etc/pki/tls/certs/localhost.crt',
+    'key': '/etc/pki/tls/private/localhost.key',
+    'chain': ''
+  }
+  ssl: True
+  letsencrypt: False
+  selfsigned: True
+  vhost:
     - {
-        'crt': '',
-        'key': '',
-        'chain': ''
+        'ssl': {
+          'crt': '/etc/pki/tls/certs/http.vhost.my.home.crt',
+          'key': '/etc/pki/tls/private/http.vhost.my.home.key',
+          'chain': ''
+        },
+        'document_root': '/var/www/owncloud',
+        'server_name': 'http.vhost.my.home',
+        'server_alias': [ ],
+        'redirect_https': True,
+        'logdirectory': '',
+        'allow_request_method': [ 'GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE' ],
+        'custom_for_site': ''
       }
 
 sudo_enabled: True
@@ -70,16 +78,17 @@ addusers:
 php:
   version: '7.3'
   fpm: True
-  fpmconf:
-    {
-      'pid': '/run/php-fpm/php73-php-fpm.pid',
-      'logfile': '/var/log/php-fpm/my-fpm.error_log',
-      'include_conf': '/etc/opt/remi/php73/php-fpm.d/*.conf',
-      'process_control_timeout': 30,
-      'process_max': 128,
-      'systemd_interval': 10
-    }
-  fpmsite:
+  with_httpd: True
+  with_nginx: False
+  fpmconf: {
+    'pid': '/run/php-fpm/php73-php-fpm.pid',
+    'logfile': '/var/log/php-fpm/my-fpm.error_log',
+    'include_conf': '/etc/opt/remi/php73/php-fpm.d/*.conf',
+    'process_control_timeout': 30,
+    'process_max': 128,
+    'systemd_interval': 10
+  }
+  confsite:
     - {
         'name': 'mysite',
         'user': 'apache',
@@ -107,11 +116,30 @@ php:
           'log_errors': 'On'
         },
         'php_values': {
-          'session.save_handler': 'files'
+          'session.save_handler': 'files',
+          'post_max_size': '256M',
+          'upload_max_filesize': '256M'
         },
         'php_flags': {
-          'display_errors': 'off'
-        }
+          'display_errors': 'off',
+          'session.auto_start': 'off',
+          'enable_post_data_reading': 'on'
+        },
+        'httpd': {
+          'ssl': {
+            'crt': '/etc/pki/tls/certs/fpm.vhost.my.home.crt',
+            'key': '/etc/pki/tls/private/fpm.vhost.my.home.key',
+            'chain': ''
+          },
+          'document_root': '/var/www/owncloud',
+          'server_name': 'fpm.vhost.my.home',
+          'server_alias': [ ],
+          'redirect_https': True,
+          'logdirectory': '',
+          'allow_request_method': [ 'GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE' ],
+          'custom_for_site': ''
+        },
+        'nginx': ''
       }
     - {
         'name': 'otrosite',

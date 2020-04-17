@@ -50,6 +50,15 @@
     src: ./etc/httpd/conf.modules.d/
     dest: /etc/httpd/conf.modules.d
 
+- name: Create httpd VirtualHost
+  template:
+    src: ./httpd.virtualhost.conf.j2
+    dest: /etc/httpd/conf.d/{{ site.server_name }}.vhost.conf
+  vars:
+    site: "{{ item }}"
+  loop: "{{ httpd.vhost }}"
+  when: "'vhost' in httpd and httpd.vhost|length > 0"
+
 - name: Configure SELinux - Allow httpd connect remote database.
   seboolean:
     name: httpd_can_network_connect

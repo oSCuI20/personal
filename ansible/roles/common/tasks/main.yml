@@ -1,7 +1,3 @@
-- name: Display
-  debug:
-    msg: "Run role {{ role_path | basename }}"
-
 - name: Set hostname {{ config.hostname }}
   raw: hostnamectl set-hostname {{ config.hostname }}
 
@@ -58,6 +54,11 @@
       - postfix
       - net-tools
   tags: common tools packages
+
+- name: Kill firewalld
+  dnf:
+    name: firewalld
+    state: removed
 
 - name: General config files
   copy: src={{ item.src }} dest={{ item.dest }}
